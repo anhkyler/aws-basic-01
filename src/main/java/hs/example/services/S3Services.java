@@ -112,25 +112,39 @@ public class S3Services {
 			   summaries.addAll (listing.getObjectSummaries());
 		}
 		summaries.forEach(s3Object -> {
-			if(s3Object.getSize() < 1 || s3Object.getKey().endsWith("/"))
-				return;
-			else {
-				S3ObjectEntity anObject = new S3ObjectEntity();
-				String fileName = s3Object.getKey();
-				if(s3Object.getKey().contains("/"))
-					anObject.setFileName(fileName.substring(s3Object.getKey().lastIndexOf("/")+1));
-				anObject.setFileName(fileName);
-				anObject.setSize(anObject.getSize());
-//				String lastMoDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(anObject.getModifiedDate());
-//				anObject.setModifiedDate(lastMoDate);
-				String filePath = s3Object.getKey();
-//				anObject.setPath(filePath.substring(0, filePath.lastIndexOf("/")));
-				finVal.add(anObject);
+			try {
+				if(s3Object.getSize() < 1 || s3Object.getKey().endsWith("/")) {
+					
+				} else {
+					S3ObjectEntity anObject = new S3ObjectEntity();
+					anObject.setKey(s3Object.getKey());
+					String fileName = s3Object.getKey();
+					if(s3Object.getKey().contains("/"))
+						anObject.setFileName(fileName.substring(s3Object.getKey().lastIndexOf("/")+1));
+					else
+						anObject.setFileName(fileName);
+					anObject.setSize(s3Object.getSize());
+					String lastMoDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(s3Object.getLastModified());
+					anObject.setModifiedDate(lastMoDate);
+					if(s3Object.getKey().contains("/")) {
+						String filePath = s3Object.getKey();
+						anObject.setPath(filePath.substring(0, filePath.lastIndexOf("/")));
+					} else {
+						anObject.setPath("");
+					}
+					
+					finVal.add(anObject);
+				}
+			}catch(Exception e) {
+				System.out.print(e.toString());
 			}
+			
+		});
+		summaries.forEach(a -> {
+			System.out.println(a);
 		});
 		finVal.forEach(a -> {
 			System.out.println(a.toString());
 		});
-		
 	}
 }

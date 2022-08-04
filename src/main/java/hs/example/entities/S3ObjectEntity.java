@@ -1,12 +1,12 @@
 package hs.example.entities;
 
-import java.util.Date;
 
 public class S3ObjectEntity {
 	private String fileName;
 	private String path;
 	private String modifiedDate;
 	private double size;
+	private String key;
 	public String getFileName() {
 		return fileName;
 	}
@@ -30,6 +30,14 @@ public class S3ObjectEntity {
 	}
 	public void setSize(double size) {
 		this.size = size;
+	}
+	
+	
+	public String getKey() {
+		return key;
+	}
+	public void setKey(String key) {
+		this.key = key;
 	}
 	@Override
 	public String toString() {
