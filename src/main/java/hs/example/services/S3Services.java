@@ -5,17 +5,22 @@ import javax.annotation.PostConstruct;
 
 import org.springframework.stereotype.Component;
 
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.model.DeleteObjectRequest;
+import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.ListNextBatchOfObjectsRequest;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.Lists;
 
@@ -24,14 +29,15 @@ import hs.example.entities.S3ObjectEntity;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 
 @Component
 public class S3Services {
 	ExecutorService  executorService= Executors.newCachedThreadPool();
 	static AWSCredentials credentials = new BasicAWSCredentials(
-			  "AKIA5GMUBTZ2OWJ7O6I4", 
-			  "n7XSy/TK9R+7KCYyWC9FtT7BJJAZyWq3SLasg17W"
+			  "AKIA5GMUBTZ2MTMC533X", 
+			  "4y1XAcJfLcHOvJKkCEqS88Klkr2LXwKm1utmGF9/"
 			);
 	AmazonS3 amazonS3;
 	
@@ -147,4 +153,109 @@ public class S3Services {
 			System.out.println(a.toString());
 		});
 	}
+	
+//	delete multiple selection objects on S3
+//	get list of key. process 1000 items each time.
+	public void deleteObjects(List<String> listObjects, String bucket) {
+		try {
+			System.out.println(listObjects.toString());
+			DeleteObjectsRequest deleteObjectRequest = new DeleteObjectsRequest(bucket).withQuiet(true);
+			deleteObjectRequest.setKeys(listObjects.stream().map(k -> new DeleteObjectsRequest.KeyVersion(k)).collect(Collectors.toList()));
+			amazonS3.deleteObjects(deleteObjectRequest);
+		}catch(AmazonS3Exception e) {
+			System.out.println(e.toString());
+		}
+		
+	}
+	
+	public void checkValidPath(String searchString) {
+//		 loop thru the entire bucket to search for files
+		ObjectListing listing = amazonS3.listObjects( "controller-2", "");
+		List<S3ObjectSummary> summaries = listing.getObjectSummaries();
+		List<S3ObjectSummary> finVal = new LinkedList<>();
+		while (listing.isTruncated()) {
+			   listing = amazonS3.listNextBatchOfObjects (listing);
+			   System.out.println("in ra cai nay");
+			   summaries.addAll (listing.getObjectSummaries());
+		}
+		
+		summaries.forEach(s3Obj -> {
+			if(s3Obj.getKey().toUpperCase().contains(searchString.toUpperCase())) {
+				finVal.add(s3Obj);
+			}
+		});
+		
+		finVal.forEach(oB -> {
+			System.out.println(oB);
+		});
+	}
+	
+	public void exploreObjects(String searchString) {
+		ObjectListing listing = amazonS3.listObjects( "controller-2", "");
+		List<S3ObjectSummary> summaries = listing.getObjectSummaries();
+		HashSet<S3ObjectSummary> firstLevelFolder = new HashSet<>();
+		HashSet<String> folders = new HashSet<>();
+		while (listing.isTruncated()) {
+		   listing = amazonS3.listNextBatchOfObjects (listing);
+		   System.out.println("in ra cai nay");
+		   summaries.addAll (listing.getObjectSummaries());
+		}
+//		firstLevelFolder.add(summaries.get(1));
+		if(searchString.equalsIgnoreCase("")) {
+			//in ra toan bo folder
+			for(int i=0 ; i<summaries.size() ; i++) {
+				if(comparingNames(firstLevelFolder, summaries.get(i))) {
+					firstLevelFolder.add(summaries.get(i));
+				}
+			}
+		}else {
+			if(searchString.equalsIgnoreCase("HHG3080") || searchString.equalsIgnoreCase("Rates") || searchString.equalsIgnoreCase("shipment")) {
+				summaries.forEach(s3Obj -> {
+					System.out.println(s3Obj.toString());
+					if(s3Obj.getKey().contains(searchString)) {
+						if(folders.size() == 0 ) {
+							folders.add(s3Obj.getKey());
+						}else {
+							if(comparingString(folders,s3Obj.getKey())) { folders.add(s3Obj.getKey()); }
+						}
+					}
+						
+				});
+				for(String e: folders) {System.out.println(e);}
+			}else {
+				this.checkValidPath(searchString);
+			}
+			
+		}
+		
+		firstLevelFolder.forEach(e -> {
+			System.out.println(e.toString());
+		});
+		
+	}
+	
+	public boolean comparingString(Set<String> path, String key) {
+		for(String e: path) {
+			if(key.contains(e)) {
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	public boolean comparingNames(Set<S3ObjectSummary> firstLevelFolder, S3ObjectSummary anObj) {
+		if(firstLevelFolder.size() == 0) {
+			return true;
+		}else {
+			for(S3ObjectSummary obj : firstLevelFolder) {
+				if(anObj.getKey().contains(obj.getKey())) {
+					return false;
+				}
+			}
+		}
+		
+		return true;
+	}
+	
+	
 }

@@ -42,8 +42,9 @@ public class S3ObjectEntity {
 	@Override
 	public String toString() {
 		return "S3ObjectEntity [fileName=" + fileName + ", path=" + path + ", modifiedDate=" + modifiedDate + ", size="
-				+ size + "]";
+				+ size + ", key=" + key + "]";
 	}
+	
 	
 	
 	
