@@ -36,8 +36,6 @@ import java.util.stream.Collectors;
 public class S3Services {
 	ExecutorService  executorService= Executors.newCachedThreadPool();
 	static AWSCredentials credentials = new BasicAWSCredentials(
-			  "AKIA5GMUBTZ2MTMC533X", 
-			  "4y1XAcJfLcHOvJKkCEqS88Klkr2LXwKm1utmGF9/"
 			);
 	AmazonS3 amazonS3;
 	
