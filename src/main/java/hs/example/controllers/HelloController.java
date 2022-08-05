@@ -1,5 +1,6 @@
 package hs.example.controllers;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.transfer.internal.UploadPartRequestFactory;
 
 import hs.example.services.S3Services;
 
@@ -59,7 +61,12 @@ public class HelloController {
 //		s3Service.deleteObjects(list,"controller-2");
 //		s3Service.checkValidPath("HHG3080");
 //		s3Service.exploreObjects("SVLM");
-		s3Service.exploreObjects(id);
+		if(id.contains("7&7")) {
+			String convertRequest = id.replaceAll("7&7", "/");
+			s3Service.exploreObjects(convertRequest);
+		}else
+			s3Service.exploreObjects(id);
+		
         return "Helo Hieu";
     }
 	
@@ -77,4 +84,29 @@ public class HelloController {
 //		s3Service.exploreObjects("Shipment");
         return "Helo Hieu";
     }
+	
+	
+	@GetMapping("/prefix/{prefix}")
+    public String searchWPrefix(@PathVariable String prefix){
+		if(prefix.contains("7&7")) {
+			String convertRequest = prefix.replaceAll("7&7", "/");
+			s3Service.listObjectsWPrefix(convertRequest);
+		}else
+			s3Service.listObjectsWPrefix(prefix);
+        return "Helo Hieu";
+    }
+	
+	@GetMapping("/file/{file}")
+	public String searhFile(@PathVariable String file) {
+		s3Service.isAValidObject(file);
+        return "Helo Hieu";
+	}
+	
+	@GetMapping("/delete")
+	public String deleteObjects() {
+		List<String> deleteO = new ArrayList<>();
+		deleteO.add("SVLM/Rates/1.txt");
+		s3Service.deleteObjects(deleteO,"controller-2");
+        return "Helo Hieu";
+	}
 }

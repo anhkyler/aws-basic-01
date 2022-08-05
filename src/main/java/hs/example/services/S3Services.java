@@ -14,11 +14,8 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.Bucket;
-import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
-import com.amazonaws.services.s3.model.ListNextBatchOfObjectsRequest;
-import com.amazonaws.services.s3.model.ListObjectsV2Request;
-import com.amazonaws.services.s3.model.ListObjectsV2Result;
+import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
@@ -198,18 +195,16 @@ public class S3Services {
 		   System.out.println("in ra cai nay");
 		   summaries.addAll (listing.getObjectSummaries());
 		}
-//		firstLevelFolder.add(summaries.get(1));
 		if(searchString.equalsIgnoreCase("")) {
-			//in ra toan bo folder
 			for(int i=0 ; i<summaries.size() ; i++) {
 				if(comparingNames(firstLevelFolder, summaries.get(i))) {
 					firstLevelFolder.add(summaries.get(i));
 				}
 			}
+			
 		}else {
 			if(searchString.equalsIgnoreCase("HHG3080") || searchString.equalsIgnoreCase("Rates") || searchString.equalsIgnoreCase("shipment")) {
 				summaries.forEach(s3Obj -> {
-					System.out.println(s3Obj.toString());
 					if(s3Obj.getKey().contains(searchString)) {
 						if(folders.size() == 0 ) {
 							folders.add(s3Obj.getKey());
@@ -217,10 +212,10 @@ public class S3Services {
 							if(comparingString(folders,s3Obj.getKey())) { folders.add(s3Obj.getKey()); }
 						}
 					}
-						
 				});
 				for(String e: folders) {System.out.println(e);}
 			}else {
+				//searching files
 				this.checkValidPath(searchString);
 			}
 			
@@ -255,5 +250,58 @@ public class S3Services {
 		return true;
 	}
 	
+	public void listObjectsWPrefix(String prefix) {
+	    ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
+	            .withBucketName("controller-2").withPrefix(prefix);
+		ObjectListing listing = amazonS3.listObjects(listObjectsRequest);
+		List<S3ObjectSummary> finalList = new ArrayList<>(); 
+		List<S3ObjectSummary> summaries = listing.getObjectSummaries();
+		while (listing.isTruncated()) {
+		   listing = amazonS3.listNextBatchOfObjects (listing);
+		   System.out.println("in ra cai nay");
+		   summaries.addAll (listing.getObjectSummaries());
+		}
+		if(prefix.toUpperCase().contains("RATES") || prefix.toUpperCase().contains("HHG3080") || 
+				prefix.toUpperCase().contains("RATEDOWNLOAD") || prefix.toUpperCase().contains("RATEFILETEMPLATE") ||
+				prefix.toUpperCase().contains("SHIPMENT") || prefix.toUpperCase().contains("SYNCADAXMLS")) {
+			for(int i=1;i<summaries.size();i++) {
+				if(!summaries.get(i).getKey().endsWith("/"))
+					finalList.add(summaries.get(i));
+			}
+//			summaries.forEach(e -> {
+//				if(!e.getKey().endsWith("/"))
+//					finalList.add(e);
+//			});	
+		}else {
+			for(int i=1;i<summaries.size();i++) {
+				if(summaries.get(i).getKey().endsWith("/"))
+					finalList.add(summaries.get(i));
+			}
+//			summaries.forEach(e -> {
+//				if(e.getKey().endsWith("/"))
+//					finalList.add(e);
+//			});	
+		}
+		
+		
+//		summaries.forEach(e -> {
+//			System.out.println(e.toString());
+//		});	
+		
+		
+		finalList.forEach(e -> {
+			System.out.println(e.toString());
+		});	
+		
+	}
+	
+	public void isAValidObject(String object) {
+		try {
+			 S3Object s3Object = amazonS3.getObject("controller-2", object);
+			 System.out.println(s3Object.toString());
+		} catch (AmazonServiceException ase) {
+			System.out.print(ase.toString());
+		}
+	}
 	
 }
