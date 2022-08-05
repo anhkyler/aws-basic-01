@@ -17,7 +17,6 @@ import com.amazonaws.services.s3.model.Bucket;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
-import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.Lists;
 
@@ -149,23 +148,11 @@ public class S3Services {
 		});
 	}
 	
-//	delete multiple selection objects on S3
-//	get list of key. process 1000 items each time.
-	public void deleteObjects(List<String> listObjects, String bucket) {
-		try {
-			System.out.println(listObjects.toString());
-			DeleteObjectsRequest deleteObjectRequest = new DeleteObjectsRequest(bucket).withQuiet(true);
-			deleteObjectRequest.setKeys(listObjects.stream().map(k -> new DeleteObjectsRequest.KeyVersion(k)).collect(Collectors.toList()));
-			amazonS3.deleteObjects(deleteObjectRequest);
-		}catch(AmazonS3Exception e) {
-			System.out.println(e.toString());
-		}
-		
-	}
+
 	
 	public void checkValidPath(String searchString) {
 //		 loop thru the entire bucket to search for files
-		ObjectListing listing = amazonS3.listObjects( "controller-2", "");
+		ObjectListing listing = amazonS3.listObjects( "controller-2", "home/TMSS/"+searchString);
 		List<S3ObjectSummary> summaries = listing.getObjectSummaries();
 		List<S3ObjectSummary> finVal = new LinkedList<>();
 		while (listing.isTruncated()) {
@@ -186,7 +173,7 @@ public class S3Services {
 	}
 	
 	public void exploreObjects(String searchString) {
-		ObjectListing listing = amazonS3.listObjects( "controller-2", "");
+		ObjectListing listing = amazonS3.listObjects( "controller-2", "home/TMSS/");
 		List<S3ObjectSummary> summaries = listing.getObjectSummaries();
 		HashSet<S3ObjectSummary> firstLevelFolder = new HashSet<>();
 		HashSet<String> folders = new HashSet<>();
@@ -195,13 +182,12 @@ public class S3Services {
 		   System.out.println("in ra cai nay");
 		   summaries.addAll (listing.getObjectSummaries());
 		}
-		if(searchString.equalsIgnoreCase("")) {
-			for(int i=0 ; i<summaries.size() ; i++) {
+		if(searchString == null) {
+			for(int i=1 ; i<summaries.size() ; i++) {
 				if(comparingNames(firstLevelFolder, summaries.get(i))) {
 					firstLevelFolder.add(summaries.get(i));
 				}
 			}
-			
 		}else {
 			if(searchString.equalsIgnoreCase("HHG3080") || searchString.equalsIgnoreCase("Rates") || searchString.equalsIgnoreCase("shipment")) {
 				summaries.forEach(s3Obj -> {
@@ -249,59 +235,103 @@ public class S3Services {
 		
 		return true;
 	}
+	public void isAValidObject(String object) {
+		try {
+			boolean doesItExists = amazonS3.doesObjectExist("controller-2", "home/TMSS/SVLM/");
+			 System.out.println(doesItExists);
+			 System.out.println(amazonS3.doesObjectExist("controller-2", "home/TMSS/SVLM/HHG3080/"));
+		} catch (AmazonServiceException ase) {
+			System.out.print(ase.toString());
+		}
+	}
 	
-	public void listObjectsWPrefix(String prefix) {
+	
+	
+	
+	
+//	delete multiple selection objects on S3
+//	get list of key. process 1000 items each time.
+	public Boolean deleteObjects(List<String> listObjects, String bucket) {
+		try {
+			System.out.println(listObjects.toString());
+			DeleteObjectsRequest deleteObjectRequest = new DeleteObjectsRequest(bucket).withQuiet(true);
+			deleteObjectRequest.setKeys(listObjects.stream().map(k -> new DeleteObjectsRequest.KeyVersion(k)).collect(Collectors.toList()));
+			amazonS3.deleteObjects(deleteObjectRequest);
+			return true;
+		}catch(AmazonS3Exception e) {
+			System.out.println(e.toString());
+			return false;
+		}
+		
+	}
+	
+
+	public List<S3ObjectSummary> listObjectsWPrefix(String prefix) {
+		if(null == prefix || prefix.equalsIgnoreCase("null"))
+			prefix ="";
 	    ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
-	            .withBucketName("controller-2").withPrefix(prefix);
+	            .withBucketName("controller-2").withPrefix("home/TMSS/" + prefix);
 		ObjectListing listing = amazonS3.listObjects(listObjectsRequest);
 		List<S3ObjectSummary> finalList = new ArrayList<>(); 
 		List<S3ObjectSummary> summaries = listing.getObjectSummaries();
 		while (listing.isTruncated()) {
 		   listing = amazonS3.listNextBatchOfObjects (listing);
-		   System.out.println("in ra cai nay");
 		   summaries.addAll (listing.getObjectSummaries());
 		}
 		if(prefix.toUpperCase().contains("RATES") || prefix.toUpperCase().contains("HHG3080") || 
 				prefix.toUpperCase().contains("RATEDOWNLOAD") || prefix.toUpperCase().contains("RATEFILETEMPLATE") ||
 				prefix.toUpperCase().contains("SHIPMENT") || prefix.toUpperCase().contains("SYNCADAXMLS")) {
 			for(int i=1;i<summaries.size();i++) {
-				if(!summaries.get(i).getKey().endsWith("/"))
+				if(summaries.get(i).getKey().endsWith("/"))
 					finalList.add(summaries.get(i));
 			}
-//			summaries.forEach(e -> {
-//				if(!e.getKey().endsWith("/"))
-//					finalList.add(e);
-//			});	
 		}else {
 			for(int i=1;i<summaries.size();i++) {
 				if(summaries.get(i).getKey().endsWith("/"))
 					finalList.add(summaries.get(i));
 			}
-//			summaries.forEach(e -> {
-//				if(e.getKey().endsWith("/"))
-//					finalList.add(e);
-//			});	
 		}
-		
-		
-//		summaries.forEach(e -> {
-//			System.out.println(e.toString());
-//		});	
-		
-		
 		finalList.forEach(e -> {
 			System.out.println(e.toString());
 		});	
 		
+		return finalList;
 	}
 	
-	public void isAValidObject(String object) {
+	public List<S3ObjectSummary> getObjectsFromCertainPath(String prefix) {
+		List<S3ObjectSummary> finalList = new ArrayList<>();
 		try {
-			 S3Object s3Object = amazonS3.getObject("controller-2", object);
-			 System.out.println(s3Object.toString());
-		} catch (AmazonServiceException ase) {
+			ListObjectsRequest listObjectsRequest = new ListObjectsRequest().withBucketName("controller-2")
+					.withPrefix( prefix);
+			ObjectListing listing = amazonS3.listObjects(listObjectsRequest);
+			
+			List<S3ObjectSummary> summaries = listing.getObjectSummaries();
+			while (listing.isTruncated()) {
+				listing = amazonS3.listNextBatchOfObjects(listing);
+				summaries.addAll(listing.getObjectSummaries());
+			}
+			if(prefix.toUpperCase().contains("RATES") || prefix.toUpperCase().contains("HHG3080") || 
+					prefix.toUpperCase().contains("RATEDOWNLOAD") || prefix.toUpperCase().contains("RATEFILETEMPLATE") ||
+					prefix.toUpperCase().contains("SHIPMENT") || prefix.toUpperCase().contains("SYNCADAXMLS")) {
+				for(int i=0;i<summaries.size();i++) {
+					if(!summaries.get(i).getKey().endsWith("/"))
+						finalList.add(summaries.get(i));
+				}
+			}else {
+				for(int i=1;i<summaries.size();i++) {
+					if(summaries.get(i).getKey().endsWith("/"))
+						finalList.add(summaries.get(i));
+				}
+			}
+			
+			finalList.forEach(e -> {
+				System.out.println(e.toString());
+			});	
+		}catch (AmazonServiceException ase) {
 			System.out.print(ase.toString());
 		}
+			
+		return finalList;
 	}
 	
 }
