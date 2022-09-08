@@ -77,8 +77,7 @@ public class S3Service {
 	private static Logger logger = LoggerFactory.getLogger(S3Service.class);
 	static {
 		try {
-			AWSCredentials credentials = new BasicAWSCredentials("AKIA22HNJIWQE3QKN7XX",
-					"F2h6PlG6Fo6/UYFen7piK8HCoDsShL25Tf2aD9R5");		
+			AWSCredentials credentials = new BasicAWSCredentials();		
 			s3Client = AmazonS3ClientBuilder
 					  .standard()
 					  .withCredentials(new AWSStaticCredentialsProvider(credentials))

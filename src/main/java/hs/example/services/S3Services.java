@@ -35,9 +35,7 @@ import java.util.stream.Collectors;
 @Component
 public class S3Services {
 	ExecutorService  executorService= Executors.newCachedThreadPool();
-	AWSCredentials credentials = new BasicAWSCredentials("AKIA22HNJIWQKAQAOM7O",
-			"5DlJDJvhBPSp0Ekfn/L/ox8I0I+UDEaWPaFFCUbJ"
-			);
+	AWSCredentials credentials = new BasicAWSCredentials();
 	AmazonS3 amazonS3; 
 	
 	String bucketname = "east-hs-test";
