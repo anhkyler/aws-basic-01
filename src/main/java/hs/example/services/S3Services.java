@@ -3,6 +3,7 @@ package hs.example.services;
 
 import javax.annotation.PostConstruct;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 import com.amazonaws.AmazonServiceException;
@@ -16,10 +17,13 @@ import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.Bucket;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
+import com.amazonaws.services.s3.model.ListObjectsV2Request;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.Lists;
 
+import hs.example.entities.S3Entity;
 import hs.example.entities.S3ObjectEntity;
 
 import java.text.SimpleDateFormat;
@@ -31,13 +35,16 @@ import java.util.stream.Collectors;
 @Component
 public class S3Services {
 	ExecutorService  executorService= Executors.newCachedThreadPool();
-	static AWSCredentials credentials = new BasicAWSCredentials(
+	AWSCredentials credentials = new BasicAWSCredentials("AKIA22HNJIWQKAQAOM7O",
+			"5DlJDJvhBPSp0Ekfn/L/ox8I0I+UDEaWPaFFCUbJ"
 			);
-	AmazonS3 amazonS3;
+	AmazonS3 amazonS3; 
+	
+	String bucketname = "east-hs-test";
 	
 	@PostConstruct
 	public void s3init() {
-		amazonS3 = AmazonS3ClientBuilder
+		amazonS3 =AmazonS3ClientBuilder
 				  .standard()
 				  .withCredentials(new AWSStaticCredentialsProvider(credentials))
 				  .withRegion(Regions.US_EAST_1)
@@ -245,16 +252,12 @@ public class S3Services {
 		}
 	}
 	
-	
-	
-	
-	
 //	delete multiple selection objects on S3
-//	get list of key. process 1000 items each time.
-	public Boolean deleteObjects(List<String> listObjects, String bucket) {
+//	get list of key. process 1000 items each time
+	public Boolean deleteObjects(List<String> listObjects) {
 		try {
 			System.out.println(listObjects.toString());
-			DeleteObjectsRequest deleteObjectRequest = new DeleteObjectsRequest(bucket).withQuiet(true);
+			DeleteObjectsRequest deleteObjectRequest = new DeleteObjectsRequest(bucketname).withQuiet(true);
 			deleteObjectRequest.setKeys(listObjects.stream().map(k -> new DeleteObjectsRequest.KeyVersion(k)).collect(Collectors.toList()));
 			amazonS3.deleteObjects(deleteObjectRequest);
 			return true;
@@ -265,43 +268,56 @@ public class S3Services {
 		
 	}
 	
-
+//	. it only search by prefix. nothing else
 	public List<S3ObjectSummary> listObjectsWPrefix(String prefix) {
-		if(null == prefix || prefix.equalsIgnoreCase("null"))
-			prefix ="";
-	    ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
-	            .withBucketName("controller-2").withPrefix("home/TMSS/" + prefix);
+		if(null == prefix || prefix.equalsIgnoreCase("null")) prefix = "";
+		ListObjectsRequest listObjectsRequest = new ListObjectsRequest().withBucketName(bucketname)
+				.withPrefix("home/TMSS/" + prefix);
 		ObjectListing listing = amazonS3.listObjects(listObjectsRequest);
-		List<S3ObjectSummary> finalList = new ArrayList<>(); 
+		List<S3ObjectSummary> finalList = new ArrayList<>();
 		List<S3ObjectSummary> summaries = listing.getObjectSummaries();
 		while (listing.isTruncated()) {
-		   listing = amazonS3.listNextBatchOfObjects (listing);
-		   summaries.addAll (listing.getObjectSummaries());
+			listing = amazonS3.listNextBatchOfObjects(listing);
+			summaries.addAll(listing.getObjectSummaries());
 		}
-		if(prefix.toUpperCase().contains("RATES") || prefix.toUpperCase().contains("HHG3080") || 
-				prefix.toUpperCase().contains("RATEDOWNLOAD") || prefix.toUpperCase().contains("RATEFILETEMPLATE") ||
-				prefix.toUpperCase().contains("SHIPMENT") || prefix.toUpperCase().contains("SYNCADAXMLS")) {
-			for(int i=1;i<summaries.size();i++) {
-				if(summaries.get(i).getKey().endsWith("/"))
-					finalList.add(summaries.get(i));
+		
+		if (prefix != "") {
+			if (prefix.toUpperCase().contains("HHG3080") || prefix.toUpperCase().contains("Rates")) {
+				for (int i = 1; i < summaries.size(); i++) {
+					if (summaries.get(i).getSize() > 0)
+						finalList.add(summaries.get(i));
+				}
+			} else {
+				for (int i = 1; i < summaries.size(); i++) {
+					if (summaries.get(i).getKey().endsWith("/"))
+						finalList.add(summaries.get(i));
+				}
 			}
-		}else {
-			for(int i=1;i<summaries.size();i++) {
-				if(summaries.get(i).getKey().endsWith("/"))
-					finalList.add(summaries.get(i));
+		} else {
+			if(summaries.size() > 1) {
+				S3ObjectSummary tempObj = summaries.get(1);	
+				finalList.add(tempObj);
+				for(int i = 1 ; i < summaries.size() ; i++) {
+					if(!summaries.get(i).getKey().contains(tempObj.getKey()) && summaries.get(i).getKey().endsWith("/")) {
+						tempObj = summaries.get(i);
+						finalList.add(tempObj);
+					}
+				}
 			}
 		}
+		
+
 		finalList.forEach(e -> {
 			System.out.println(e.toString());
-		});	
-		
+		});
+
 		return finalList;
 	}
 	
 	public List<S3ObjectSummary> getObjectsFromCertainPath(String prefix) {
 		List<S3ObjectSummary> finalList = new ArrayList<>();
 		try {
-			ListObjectsRequest listObjectsRequest = new ListObjectsRequest().withBucketName("controller-2")
+			ListObjectsRequest listObjectsRequest = new ListObjectsRequest().withBucketName(bucketname)
 					.withPrefix( prefix);
 			ObjectListing listing = amazonS3.listObjects(listObjectsRequest);
 			
@@ -334,4 +350,96 @@ public class S3Services {
 		return finalList;
 	}
 	
+	
+	public void testFindObject() {
+		ListObjectsV2Request req = new ListObjectsV2Request().withBucketName(bucketname).withPrefix("home/TMSS/");
+		ListObjectsV2Result listing = amazonS3.listObjectsV2(req);
+		for (String commonPrefix : listing.getCommonPrefixes()) {
+		        System.out.println(commonPrefix);
+		}
+		 System.out.println("asdasd");
+		for (S3ObjectSummary summary: listing.getObjectSummaries()) {
+		    System.out.println(summary.getKey());
+		}
+	}
+	
+	public List<S3ObjectSummary> searchAllSubFolder(String searchKey) {
+		ListObjectsRequest listObjectsRequest = new ListObjectsRequest().withBucketName(bucketname)
+				.withPrefix("home/TMSS/");
+		ObjectListing listing = amazonS3.listObjects(listObjectsRequest);
+		List<S3ObjectSummary> finalList = new ArrayList<>();
+		List<S3ObjectSummary> summaries = listing.getObjectSummaries();
+		while (listing.isTruncated()) {
+			listing = amazonS3.listNextBatchOfObjects(listing);
+			summaries.addAll(listing.getObjectSummaries());
+		}
+		if(null == searchKey || searchKey.equalsIgnoreCase("")) {
+			return summaries;
+		}else {
+			for(int i = 0; i< summaries.size() ; i++) {
+				if(summaries.get(i).getKey().toUpperCase().contains(searchKey.toUpperCase())) {
+					finalList.add(summaries.get(i));
+				}
+			}
+			return finalList;
+		}
+	}
+	
+	public List<S3Entity> getFirstFolderAndFiles(){
+		List<S3Entity> listS3Entity = new ArrayList<>();
+		ListObjectsV2Request  req = new ListObjectsV2Request().withBucketName(bucketname)
+				.withPrefix("home/TMSS/").withDelimiter("/");
+		ListObjectsV2Result  listing= amazonS3.listObjectsV2(req);
+		List<S3ObjectSummary > summaries = new ArrayList<>();
+		String tempPrefix = listing.getPrefix();
+		
+		while(listing.isTruncated()) {
+			
+		};
+		
+		do {
+			listing = amazonS3.listObjectsV2(req);
+			System.out.println(listing.toString());
+			System.out.println(listing.getCommonPrefixes().toString());
+			summaries.addAll(listing.getObjectSummaries());
+		}while(listing.isTruncated());
+		summaries.forEach(s3Obj -> {
+			System.out.println(s3Obj.toString());
+		});
+		return null;
+	}
+	
+	private void parsingRawFolderData(List<S3Entity> listS3Entity, ListObjectsV2Result listing){
+		List<String> commentPrefix = listing.getCommonPrefixes();
+		if(null != commentPrefix && !commentPrefix.isEmpty()) {
+			commentPrefix.forEach(key -> {
+				S3Entity s3Entity = new S3Entity();
+				String newStr = StringUtils.substring(key, 0, key.length()-1);
+				String name = StringUtils.substring(newStr, StringUtils.lastIndexOf(newStr, "/")+1,newStr.length());
+				s3Entity.setName(name);
+				s3Entity.setKey(key);
+				s3Entity.setType("Folder");
+				s3Entity.setSize(0);
+			});
+		}
+	}
+	
+	private void parsingRawFolderData(List<S3Entity> listS3Entity, List<S3ObjectSummary> summaries, String tempPrefix) {
+		if(null != summaries || !summaries.isEmpty()) {
+			for(int i=0; i < summaries.size() ; i++) {
+				if(i == 0 && summaries.get(0).getKey().equalsIgnoreCase(tempPrefix)) {
+					//dont try to solve in here 
+					//because it is always the prefix of every request. I place this validation for getting more than 1000 ojbects from S3
+				}else {
+					S3Entity s3Entity = new S3Entity();
+					String key = summaries.get(i).getKey();
+					String name = StringUtils.substring(key, StringUtils.lastIndexOf(key, "/")+1,key.length());
+					s3Entity.setName(name);
+					s3Entity.setKey(key);
+					s3Entity.setSize(summaries.get(i).getSize());
+					s3Entity.setModifiedDate(summaries.get(i).getLastModified());
+				}
+			}
+		}
+	}
 }
